@@ -1,12 +1,9 @@
 const http        = require('http');
 const url         = require('url');
 const querystring = require('querystring');
+const fs = require('fs');
 
-const todos        = [
-    {msg: 'msg 1', completed: true},
-    {msg: 'msg 2', completed: false},
-    {msg: 'msg 3', completed: false}
-];
+const todos        = [];
 const app = function(req){
 
     let parsedUrl = url.parse(req.url);
@@ -47,10 +44,10 @@ const app = function(req){
         },
         'put': function (_url, fn) {
             if (req.method === 'PUT') {
-                let realUrlParts = parsedUrl.pathname.split('/');
+                let urlParts = parsedUrl.pathname.split('/');
                 if (_url.indexOf(':id') > -1) {
-                    let id = realUrlParts[2];
-                    if (id && todos[id]) {
+                    let id = getIndexFromID(urlParts[2]);
+                    if (id >=0 && todos[id]) {
                         let body = '';
                         req.on('data', function (chunk) {
                             body += chunk.toString();
@@ -68,18 +65,19 @@ const app = function(req){
         },
         'delete': function (_url, fn) {
             if (req.method === 'DELETE') {
-                let urlParts  = parsedUrl.pathname.split('/');
-                let id        = urlParts[2];
-                if (id && todos[id]) {
+                let urlParts = parsedUrl.pathname.split('/');
+                let id = getIndexFromID(urlParts[2]);
+                if (id >=0 && todos[id]) {
                     fn(id);
                 } else {
-                    console.log('PUT ' + id + ' IS NOT FOUND');
+                    console.log('DELETE ' + id + ' IS NOT FOUND');
                 }
 
             }
         }
     }
 };
+
 
 const httpServer = http.createServer(function (req, res) {
 
@@ -88,7 +86,15 @@ const httpServer = http.createServer(function (req, res) {
     let result        = [];
 
     app(req).get('/', function () {
-        result = todos;
+        //result = todos;
+        fs.readFile('./index.html', function (err, html) {
+            if (err) {
+                console.error(err);
+            }
+            res.writeHeader(200, {"Content-Type": "text/html"});
+            res.write(html);
+            res.end();
+        });
     });
     app(req).get('/todos/', function () {
         for (let i = 0; i < todos.length; i++) {
@@ -96,31 +102,38 @@ const httpServer = http.createServer(function (req, res) {
                 result.push(todos[i]);
             }
         }
+        res.end(JSON.stringify(result));
     });
     app(req).get('/todos/:id', function (urlVars) {
         result = todos[urlVars['id']] || {};
+        res.end(JSON.stringify(result));
     });
     app(req).post('/todos', function (body) {
         todos.push({
             msg: body,
-            completed: false
+            completed: false,
+            id : Math.floor((Math.random() * 100000) + 1)
         });
         result = {status: 'OK'};
+        res.end(JSON.stringify(result));
     });
     app(req).put('/todos/:id', function (body, id) {
         if(!body)
             return false;
-        let bodyObj = JSON.parse(eval(body));//json parse error
+        let bodyObj = JSON.parse(body);//json parse error
+        console.log(body, bodyObj)
         todos[id] = mergeObjects(todos[id], bodyObj);
+        console.log('----------', todos)
         result    = {status: 'OK'};
+        res.end(JSON.stringify(result));
     });
     app(req).delete('/todos/:id', function (id) {
+        console.log('deleteeeee',id, todos);
         todos.splice(id, 1);
         result = {status: 'OK'};
+        res.end(JSON.stringify(result));
     });
 
-
-    res.end(JSON.stringify(result));
 });
 
 httpServer.listen(3001); // start server and have it listen on port 3001
@@ -154,3 +167,12 @@ function mergeObjects(obj1, obj2) {
     }
     return obj3;
 };
+function getIndexFromID(_id) {
+    let result;
+    todos.forEach(function( todo, id ) {
+        if(todo.id == _id) {
+            result = id;
+        }
+    });
+    return result;
+}

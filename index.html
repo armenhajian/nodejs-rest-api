@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+</head>
+<body>
+<div>
+    <ul id="list"></ul>
+</div>
+<form name="addTodo" action="/todos/">
+    <input type="text" name="msg">
+    <input type="submit" value="Add">
+</form>
+</body>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script>
+    $(document).ready(function(){
+        const generateHtml = function(data){
+            console.log(data);
+            let html = '';
+            data.forEach(function(todo){
+                let isChecked = todo.completed ? 'checked':'';
+
+                html += "<li id='"+todo.id+"'>" +
+                        "<span>"+todo.msg+"</span>" +
+                        "<span><input class='completed' type='checkbox' " + isChecked + "></span>" +
+                        "<span><a href='#' class='delete'>Delete</a></span>" +
+                        "</li>";
+            });
+
+            $('#list').append(html);
+
+        };
+
+        const getList = function(){
+            $.ajax({
+                type        : 'GET',
+                url         : '/todos/',
+                dataType    : 'json',
+                success     : function(data) {
+                    generateHtml(data);
+                }
+            });
+        };
+
+        $(document).on('click', '.completed', function () {
+            let id       = $(this).closest('li').attr('id');
+            let formData = {
+                completed: this.checked
+            };
+            $.ajax({
+                type: 'PUT',
+                url: '/todos/' + id,
+                data: JSON.stringify(formData),
+                dataType: 'json',
+                success: function (data) {
+                    console.log(data);
+                }
+            });
+        });
+
+        $(document).on('click', '.delete', function () {
+            let id       = $(this).closest('li').attr('id');
+
+            $.ajax({
+                type: 'DELETE',
+                url: '/todos/' + id,
+                success: function (data) {
+                    console.log(data);
+                    $('#list').html('');
+                    getList();
+                }
+            });
+        });
+
+        getList();
+        $("form[name='addTodo']").submit(function(event) {
+
+            $.ajax({
+                type        : 'POST',
+                url         : '/todos',
+                data        : $(this).find('input[name="msg"]').val(),
+                success     : function(data) {
+                    $('#list').html('');
+                    getList();
+                    $("form[name='addTodo']")[0].reset();
+                }
+            });
+
+            event.preventDefault();
+        });
+
+    });
+</script>
+</html>
